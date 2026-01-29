@@ -1,3 +1,6 @@
+import os
+from typing import List, Optional
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,6 +21,31 @@ openapi_tags = [
     {"name": "admin-orders", "description": "Admin order management."},
 ]
 
+
+def _split_csv(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    return [v.strip() for v in value.split(",") if v.strip()]
+
+
+def _get_cors_allow_origins() -> List[str]:
+    """
+    Resolve CORS allow-origins.
+
+    Env options:
+      - CORS_ALLOW_ORIGINS: comma-separated exact origins (recommended for production)
+      - CORS_ALLOW_ALL: if 'true', allow '*'
+
+    Default:
+      - allow '*' to make preview environments work out-of-the-box.
+    """
+    if (os.getenv("CORS_ALLOW_ALL") or "").strip().lower() in {"1", "true", "yes"}:
+        return ["*"]
+
+    explicit = _split_csv(os.getenv("CORS_ALLOW_ORIGINS"))
+    return explicit if explicit else ["*"]
+
+
 app = FastAPI(
     title="Modern E-Commerce API",
     description=(
@@ -29,10 +57,15 @@ app = FastAPI(
     openapi_tags=openapi_tags,
 )
 
+allow_origins = _get_cors_allow_origins()
+
+# Note: when allow_origins=["*"], Starlette's CORSMiddleware will not set
+# Access-Control-Allow-Credentials=true safely. For preview this is usually OK.
+# If you need credentials, set CORS_ALLOW_ORIGINS to the specific frontend origin(s).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allow_origins,
+    allow_credentials=allow_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -68,6 +101,12 @@ def docs_help():
         "admin": {
             "products": "All /admin/products* endpoints require admin role",
             "orders": "All /admin/orders* endpoints require admin role",
+        },
+        "cors": {
+            "env": {
+                "CORS_ALLOW_ORIGINS": "comma-separated list of exact origins",
+                "CORS_ALLOW_ALL": "true/false to allow all origins (preview default is allow-all)",
+            }
         },
     }
 

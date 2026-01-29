@@ -19,9 +19,19 @@ def build_database_url() -> str:
     Build a PostgreSQL connection URL from environment variables.
 
     Prefers a full URL in POSTGRES_URL if provided. Otherwise composes:
-      postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@localhost:{POSTGRES_PORT}/{POSTGRES_DB}
 
-    Note: host is assumed to be reachable as localhost from this container runtime.
+      postgresql+psycopg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}
+
+    Defaults are aligned to ecommerce_database/db_connection.txt:
+      psql postgresql://appuser:dbuser123@localhost:5000/myapp
+
+    Env vars supported:
+      - POSTGRES_URL (full connection string)
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      - POSTGRES_PORT
+      - POSTGRES_HOST  (optional; defaults to 'localhost')
     """
     # Prefer full URL if the environment provides it.
     postgres_url = _env("POSTGRES_URL")
@@ -35,9 +45,9 @@ def build_database_url() -> str:
     password = _env("POSTGRES_PASSWORD") or "dbuser123"
     db = _env("POSTGRES_DB") or "myapp"
     port = _env("POSTGRES_PORT") or "5000"
+    host = _env("POSTGRES_HOST") or "localhost"
 
-    # Default host is localhost per db_connection.txt in the database container.
-    return f"postgresql+psycopg://{user}:{password}@localhost:{port}/{db}"
+    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
 
 
 DATABASE_URL = build_database_url()
